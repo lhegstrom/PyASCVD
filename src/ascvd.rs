@@ -1,99 +1,157 @@
-pub(crate) struct Covariates {
-    pub(crate) age: f64,
-    pub(crate) age_squared: f64,
-    pub(crate) total_cholesterol: f64,
-    pub(crate) age_total_cholesterol: f64,
-    pub(crate) hdl_cholesterol: f64,
-    pub(crate) age_hdl_cholesterol: f64,
-    pub(crate) treated_systolic_blood_pressure: f64,
-    pub(crate) age_treated_systolic_blood_pressure: f64,
-    pub(crate) untreated_systolic_blood_pressure: f64,
-    pub(crate) age_untreated_systolic_blood_pressure: f64,
-    pub(crate) current_smoker: f64,
-    pub(crate) age_current_smoker: f64,
-    pub(crate) diabetes: f64,
-    pub(crate) base_survival: f64,
-    pub(crate) mean_coefficient_value: f64,
+use crate::covariates::Covariates;
+use pyo3::prelude::*;
+use pyo3::exceptions::PyValueError;
+
+#[derive(Debug)]
+enum Sex {
+    Male,
+    Female,
 }
 
-impl Covariates {
-    pub(crate) fn white_female() -> Covariates {
-        Covariates {
-            age: -29.799,
-            age_squared: 4.884,
-            total_cholesterol: 13.540,
-            age_total_cholesterol: -3.114,
-            hdl_cholesterol: -13.578,
-            age_hdl_cholesterol: 3.149,
-            treated_systolic_blood_pressure: 2.019,
-            age_treated_systolic_blood_pressure: 0.0,
-            untreated_systolic_blood_pressure: 1.957,
-            age_untreated_systolic_blood_pressure: 0.0,
-            current_smoker: 7.574,
-            age_current_smoker: -1.665,
-            diabetes: 0.661,
-            base_survival: 0.9665,
-            mean_coefficient_value: -29.18,
-        }
+#[derive(Debug)]
+enum Race {
+    White,
+    AfricanAmerican,
+}
+
+fn parse_sex(input: &str) -> Option<Sex> {
+    match input.to_lowercase().as_str() {
+        "male" => Some(Sex::Male),
+        "female" => Some(Sex::Female),
+        _ => None,
+    }
+}
+
+fn parse_race(input: &str) -> Option<Race> {
+    match input.to_lowercase().as_str() {
+        "white" => Some(Race::White),
+        "african american" | "aa" => Some(Race::AfricanAmerican),
+        _ => None,
+    }
+}
+
+fn get_gender_and_race_covariates(sex: &str, race: &str) -> PyResult<Covariates> {
+    match (parse_sex(sex), parse_race(race)) {
+        (Some(Sex::Male), Some(Race::White)) => Ok(Covariates::white_male()),
+        (Some(Sex::Female), Some(Race::White)) => Ok(Covariates::white_female()),
+        (Some(Sex::Male), Some(Race::AfricanAmerican)) => Ok(Covariates::african_american_male()),
+        (Some(Sex::Female), Some(Race::AfricanAmerican)) => Ok(Covariates::african_american_female()),
+        _ => Err(PyErr::new::<PyValueError, _>("Invalid input")),
+    }
+}
+
+pub fn validate_input(
+    age: f64,
+    total_cholesterol: f64,
+    hdl_cholesterol: f64,
+    systolic_bp: f64,
+) -> Result<(), String> {
+    if !(40.0..=79.0).contains(&age) {
+        return Err("Age must be between 40 and 79".to_string());
     }
 
-    pub(crate) fn african_american_female() -> Covariates {
-        Covariates {
-            age: 17.114,
-            age_squared: 0.0,
-            total_cholesterol: 0.940,
-            age_total_cholesterol: 0.0,
-            hdl_cholesterol: -18.920,
-            age_hdl_cholesterol: 4.475,
-            treated_systolic_blood_pressure: 29.291,
-            age_treated_systolic_blood_pressure: 6.432,
-            untreated_systolic_blood_pressure: 27.820,
-            age_untreated_systolic_blood_pressure: -6.087,
-            current_smoker: 0.691,
-            age_current_smoker: 0.0,
-            diabetes: 0.874,
-            base_survival: 0.9533,
-            mean_coefficient_value: 86.61
-        }
+    if !(130.0..=320.0).contains(&total_cholesterol) {
+        return Err("Total cholesterol must be between 130 and 320".to_string());
     }
-
-    pub(crate) fn white_male() -> Covariates {
-        Covariates {
-            age: 12.344,
-            age_squared: 0.0,
-            total_cholesterol: 11.853,
-            age_total_cholesterol: -2.664,
-            hdl_cholesterol: -7.990,
-            age_hdl_cholesterol: 1.769,
-            treated_systolic_blood_pressure: 1.797,
-            age_treated_systolic_blood_pressure: 0.0,
-            untreated_systolic_blood_pressure: 1.764,
-            age_untreated_systolic_blood_pressure: 0.0,
-            current_smoker: 7.837,
-            age_current_smoker: -1.795,
-            diabetes: 0.658,
-            base_survival: 0.9144,
-            mean_coefficient_value: 61.18
-        }
+    if !(20.0..=100.0).contains(&hdl_cholesterol) {
+        return Err("HDL cholesterol must be between 20 and 100".to_string());
     }
+    if !(90.0..=200.0).contains(&systolic_bp) {
+        return Err("Systolic blood pressure must be between 90 and 200".to_string());
+    }
+    Ok(())
+}
 
-    pub(crate) fn african_american_male() -> Covariates {
-        Covariates {
-            age: 2.469,
-            age_squared: 0.0,
-            total_cholesterol: 0.302,
-            age_total_cholesterol: 0.0,
-            hdl_cholesterol: -0.307,
-            age_hdl_cholesterol: 0.0,
-            treated_systolic_blood_pressure: 1.916,
-            age_treated_systolic_blood_pressure: 0.0,
-            untreated_systolic_blood_pressure: 1.809,
-            age_untreated_systolic_blood_pressure: 0.0,
-            current_smoker: 0.549,
-            age_current_smoker: 0.0,
-            diabetes: 0.645,
-            base_survival: 0.8954,
-            mean_coefficient_value: 19.54
-        }
+pub fn calculate_ascvd(
+    age: f64,
+    sex: &str,
+    race: &str,
+    systolic_blood_pressure: f64,
+    total_cholesterol: f64,
+    hdl_cholesterol: f64,
+    diabetes: bool,
+    smoker: bool,
+    on_hypertension_treatment: bool,
+) -> Result<f64, String> {
+
+    validate_input(age, total_cholesterol, hdl_cholesterol, systolic_blood_pressure)?;
+
+    let ln_age = age.ln();
+    let ln_total_cholesterol = total_cholesterol.ln();
+    let ln_hdl_cholesterol = hdl_cholesterol.ln();
+    let ln_systolic_blood_pressure = systolic_blood_pressure.ln();
+
+    let ln_age_squared = ln_age.powi(2);
+    let ln_age_total_cholesterol = ln_age * ln_total_cholesterol;
+    let ln_age_hdl_cholesterol = ln_age * ln_hdl_cholesterol;
+    let ln_age_systolic_blood_pressure = ln_age * ln_systolic_blood_pressure;
+
+    let covariates = get_gender_and_race_covariates(sex, race).unwrap();
+
+    let individual_sum: f64 = vec![
+        ln_age * covariates.age,
+        ln_age_squared * covariates.age_squared,
+        ln_total_cholesterol * covariates.total_cholesterol,
+        ln_age_total_cholesterol * covariates.age_total_cholesterol,
+        ln_hdl_cholesterol * covariates.hdl_cholesterol,
+        ln_age_hdl_cholesterol * covariates.age_hdl_cholesterol,
+        ln_systolic_blood_pressure
+            * (if on_hypertension_treatment {
+                covariates.treated_systolic_blood_pressure
+            } else {
+                covariates.untreated_systolic_blood_pressure
+            }),
+        ln_age_systolic_blood_pressure
+            * (if on_hypertension_treatment {
+                covariates.age_treated_systolic_blood_pressure
+            } else {
+                covariates.age_untreated_systolic_blood_pressure
+            }),
+        if smoker {
+            covariates.current_smoker
+        } else {
+            0.0
+        },
+        if smoker {
+            ln_age * covariates.age_current_smoker
+        } else {
+            0.0
+        },
+        if diabetes { covariates.diabetes } else { 0.0 },
+    ]
+    .iter()
+    .sum();
+
+    let exponent = (individual_sum - covariates.mean_coefficient_value).exp();
+    let result = (1.0 - covariates.base_survival.powf(exponent)) * 100.0;
+    // println!("{}", rounded_individual_sum);
+    Ok(result)
+}
+
+#[pyfunction]
+pub fn calculate_10_yr_ascvd(
+    age: f64,
+    sex: String,
+    race: String,
+    systolic_blood_pressure: f64,
+    total_cholesterol: f64,
+    hdl_cholesterol: f64,
+    diabetes: bool,
+    smoker: bool,
+    on_hypertension_treatment: bool,
+) -> PyResult<f64> {
+    match calculate_ascvd(
+        age,
+        &sex,
+        &race,
+        systolic_blood_pressure,
+        total_cholesterol,
+        hdl_cholesterol,
+        diabetes,
+        smoker,
+        on_hypertension_treatment,
+    ) {
+        Ok(result) => Ok(result),
+        Err(e) => Err(PyErr::new::<PyValueError, _>(e)),
     }
 }
