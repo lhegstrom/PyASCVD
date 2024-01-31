@@ -46,7 +46,7 @@ setup(
     cmdclass={
         "install": CustomInstallCommand,
     },
-    #install_requires=read_requirements(),
+    install_requires=read_requirements(),
     description="",
     long_description=long_description,
     long_description_content_type="text/markdown",
