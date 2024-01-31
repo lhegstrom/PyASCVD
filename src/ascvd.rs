@@ -1,6 +1,9 @@
 use crate::covariates::Covariates;
-use pyo3::prelude::*;
+use numpy::{PyArray, PyReadonlyArrayDyn};
 use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use rayon::prelude::*;
+use std::f64;
 
 #[derive(Debug)]
 enum Sex {
@@ -35,7 +38,9 @@ fn get_gender_and_race_covariates(sex: &str, race: &str) -> PyResult<Covariates>
         (Some(Sex::Male), Some(Race::White)) => Ok(Covariates::white_male()),
         (Some(Sex::Female), Some(Race::White)) => Ok(Covariates::white_female()),
         (Some(Sex::Male), Some(Race::AfricanAmerican)) => Ok(Covariates::african_american_male()),
-        (Some(Sex::Female), Some(Race::AfricanAmerican)) => Ok(Covariates::african_american_female()),
+        (Some(Sex::Female), Some(Race::AfricanAmerican)) => {
+            Ok(Covariates::african_american_female())
+        }
         _ => Err(PyErr::new::<PyValueError, _>("Invalid input")),
     }
 }
@@ -73,8 +78,12 @@ pub fn calculate_ascvd(
     smoker: bool,
     on_hypertension_treatment: bool,
 ) -> Result<f64, String> {
-
-    validate_input(age, total_cholesterol, hdl_cholesterol, systolic_blood_pressure)?;
+    validate_input(
+        age,
+        total_cholesterol,
+        hdl_cholesterol,
+        systolic_blood_pressure,
+    )?;
 
     let ln_age = age.ln();
     let ln_total_cholesterol = total_cholesterol.ln();
@@ -154,4 +163,85 @@ pub fn calculate_10_yr_ascvd(
         Ok(result) => Ok(result),
         Err(e) => Err(PyErr::new::<PyValueError, _>(e)),
     }
+}
+
+type RiskCalcFn = fn(
+    f64,  // age
+    &str, // sex
+    &str, // race
+    f64,  // systolic_bp
+    f64,  // total_cholesterol
+    f64,  // hdl_cholesterol
+    bool, // has_diabetes
+    bool, // current_smoker
+    bool, // on_htn_meds
+) -> Result<f64, String>;
+
+pub fn calculate_risk_rust_parallel_np(
+    py: Python,
+    data: PyReadonlyArrayDyn<f64>,
+    risk_calc_fn: RiskCalcFn,
+) -> PyResult<PyObject> {
+    let shape = data.shape();
+    if shape.len() != 2 || shape[1] != 9 {
+        return Err(PyValueError::new_err("Array shape must be (n, 11)"));
+    }
+
+    let rows = data
+        .as_array()
+        .outer_iter()
+        .map(|row| {
+            (
+                row[0],                                        // age
+                if row[1] == 1.0 { "male" } else { "female" }, // Convert numeric to "male" or "female"
+                if row[2] == 1.0 { "aa" } else { "white" },    // Convert numeric to "aa" or "white"
+                row[3],                                        // systolic bp
+                row[4],                                        // total_cholesterol
+                row[5],                                        // hdl cholesterol
+                row[6] != 0.0,                                 // Convert float to bool // diabetes
+                row[7] != 0.0,                                 // Convert float to bool // smoker
+                row[8] != 0.0, // Convert float to bool // htn_treatment
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let results: Vec<_> = rows
+        .into_par_iter()
+        .map(
+            |(
+                age,
+                sex,
+                race,
+                systolic_blood_pressure,
+                total_cholesterol,
+                hdl_cholesterol,
+                diabetes,
+                smoker,
+                on_hypertension_treatment,
+            )| {
+                risk_calc_fn(
+                    age,
+                    sex,
+                    race,
+                    systolic_blood_pressure,
+                    total_cholesterol,
+                    hdl_cholesterol,
+                    diabetes,
+                    smoker,
+                    on_hypertension_treatment,
+                )
+                .unwrap_or(f64::NAN) // Handle error by returning NaN
+            },
+        )
+        .collect();
+
+    Ok(PyArray::from_vec(py, results).to_object(py))
+}
+
+#[pyfunction]
+pub fn calculate_10_yr_ascvd_rust_parallel_np(
+    py: Python,
+    data: PyReadonlyArrayDyn<f64>,
+) -> PyResult<PyObject> {
+    calculate_risk_rust_parallel_np(py, data, calculate_ascvd)
 }

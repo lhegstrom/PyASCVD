@@ -53,7 +53,7 @@ impl Covariates {
             age_current_smoker: 0.0,
             diabetes: 0.8738,
             base_survival: 0.95334,
-            mean_coefficient_value: 86.61
+            mean_coefficient_value: 86.61,
         }
     }
 
@@ -73,7 +73,7 @@ impl Covariates {
             age_current_smoker: -1.795,
             diabetes: 0.658,
             base_survival: 0.91436,
-            mean_coefficient_value: 61.18
+            mean_coefficient_value: 61.18,
         }
     }
 
@@ -93,7 +93,7 @@ impl Covariates {
             age_current_smoker: 0.0,
             diabetes: 0.645,
             base_survival: 0.89536,
-            mean_coefficient_value: 19.54
+            mean_coefficient_value: 19.54,
         }
     }
 }
